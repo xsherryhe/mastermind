@@ -1,6 +1,6 @@
 require 'pry-byebug'
 
-module Input
+module GlobalInputValidation
   def positive_integer_input
     positive_integer = gets.chomp.to_f
     until positive_integer.positive? && positive_integer.to_i == positive_integer
@@ -44,8 +44,33 @@ module Mastermind
     private_class_method :join_colors
   end
 
+  module InputValidation
+    include GlobalInputValidation
+    include Colors
+
+    def valid_code_input(length)
+      valid_code = gets.chomp.upcase.split('')
+      until valid_code.size == length && valid_letters_only(valid_code)
+        puts "Please type #{length} letters (e.g., #{sample_code(length)})." unless valid_code.size == length
+        puts 'Please only type letters corresponding to valid colors.' unless valid_letters_only(valid_code)
+        valid_code = gets.chomp.upcase.split('')
+      end
+      valid_code
+    end
+
+    def sample_code(length)
+      sample_letters(length).join
+    end
+
+    private
+
+    def valid_letters_only(code)
+      code.all? { |letter| letters.join.include?(letter) }
+    end
+  end
+
   class Game
-    include Input
+    include InputValidation
     include Colors
 
     def initialize
@@ -130,6 +155,17 @@ module Mastermind
     end
   end
 
+  class HumanCodemaker < Codemaker
+    include InputValidation
+    attr_reader :name
+
+    def initialize(code_length)
+      puts 'Codemaker, what is your name?'
+      @name = gets.chomp
+      puts "Make your secret code! Type #{super} letters for #{super} colors (e.g., #{sample_code(super)})."
+    end
+  end
+
   class Codebreaker
     include Colors
     attr_reader :guess
@@ -140,6 +176,7 @@ module Mastermind
   end
 
   class HumanCodebreaker < Codebreaker
+    include InputValidation
     attr_reader :name
 
     def initialize(code_length)
@@ -149,29 +186,11 @@ module Mastermind
     end
 
     def guess
-      puts "Guess the code, #{name}! Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_guess})."
+      puts "Guess the code, #{name}! " \
+           "Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_code(@code_length)})."
       puts Colors.shorthand
-      @guess = gets.chomp.upcase.split('')
-      validate_guess
+      @guess = valid_code_input(@code_length)
       super
-    end
-
-    private
-
-    def sample_guess
-      sample_letters(@code_length).join
-    end
-
-    def valid_letters_only
-      @guess.all? { |letter| letters.join.include?(letter) }
-    end
-
-    def validate_guess
-      until @guess.size == @code_length && valid_letters_only
-        puts "Please type #{@code_length} letters (e.g., #{sample_guess})." unless @guess.size == @code_length
-        puts 'Please only type letters corresponding to valid colors.' unless valid_letters_only
-        @guess = gets.chomp.upcase.split('')
-      end
     end
   end
 end
