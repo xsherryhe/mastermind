@@ -25,8 +25,8 @@ module Mastermind
       COLORS.keys.map(&:to_s)
     end
 
-    def sample_letters(length)
-      length.times.map { letters.sample }
+    def sample_letters
+      @code_length.times.map { letters.sample }
     end
 
     def self.to_s
@@ -46,27 +46,35 @@ module Mastermind
 
   module InputValidation
     include GlobalInputValidation
-    include Colors
 
-    def valid_code_input(length)
+    def valid_code_instruction
+      "Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_code}).\r\n" + Colors.shorthand
+    end
+
+    def valid_code_input
       valid_code = gets.chomp.upcase.split('')
-      until valid_code.size == length && valid_letters_only(valid_code)
-        puts "Please type #{length} letters (e.g., #{sample_code(length)})." unless valid_code.size == length
+      until valid_code.size == @code_length && valid_letters_only(valid_code)
+        puts "Please type #{@code_length} letters (e.g., #{sample_code})." unless valid_code.size == @code_length
         puts 'Please only type letters corresponding to valid colors.' unless valid_letters_only(valid_code)
         valid_code = gets.chomp.upcase.split('')
       end
       valid_code
     end
 
-    def sample_code(length)
-      sample_letters(length).join
-    end
-
     private
+
+    def sample_code
+      sample_letters.join
+    end
 
     def valid_letters_only(code)
       code.all? { |letter| letters.join.include?(letter) }
     end
+  end
+
+  module Human
+    include InputValidation
+    attr_reader :name
   end
 
   class Game
@@ -80,8 +88,7 @@ module Mastermind
       @code_length = positive_integer_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = positive_integer_input
-      @codebreaker = HumanCodebreaker.new(@code_length)
-      @codemaker = ComputerCodemaker.new(@code_length)
+      @codebreaker, @codemaker = [HumanCodebreaker, ComputerCodemaker].map { |player| player.new(@code_length) }
       @history = {}.compare_by_identity
     end
 
@@ -121,13 +128,16 @@ module Mastermind
     end
   end
 
-  class Codemaker
+  class Player
     include Colors
-    attr_reader :code
 
     def initialize(code_length)
-      code_length
+      @code_length = code_length
     end
+  end
+
+  class Codemaker < Player
+    attr_reader :code
 
     def feedback(guess)
       @correct_color_position = 0
@@ -148,36 +158,32 @@ module Mastermind
     end
   end
 
+  class Codebreaker < Player
+    attr_reader :guess
+  end
+
   class ComputerCodemaker < Codemaker
     def initialize(code_length)
-      @code = sample_letters(super)
-      puts "The computer has chosen a code with #{super} peg colors."
+      super
+      @code = sample_letters
+      puts "The computer has chosen a code with #{@code_length} peg colors."
     end
   end
 
   class HumanCodemaker < Codemaker
-    include InputValidation
-    attr_reader :name
+    include Human
 
     def initialize(code_length)
+      super
       puts 'Codemaker, what is your name?'
       @name = gets.chomp
-      puts "Make your secret code! Type #{super} letters for #{super} colors (e.g., #{sample_code(super)})."
-    end
-  end
-
-  class Codebreaker
-    include Colors
-    attr_reader :guess
-
-    def initialize(code_length)
-      @code_length = code_length
+      puts "Make your secret code, #{name}! " + valid_code_instruction
+      @code = valid_code_input
     end
   end
 
   class HumanCodebreaker < Codebreaker
-    include InputValidation
-    attr_reader :name
+    include Human
 
     def initialize(code_length)
       super
@@ -186,10 +192,8 @@ module Mastermind
     end
 
     def guess
-      puts "Guess the code, #{name}! " \
-           "Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_code(@code_length)})."
-      puts Colors.shorthand
-      @guess = valid_code_input(@code_length)
+      puts "Guess the code, #{name}! " + valid_code_instruction
+      @guess = valid_code_input
       super
     end
   end
