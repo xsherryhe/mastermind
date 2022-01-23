@@ -1,5 +1,16 @@
 require 'pry-byebug'
 
+module Input
+  def positive_integer_input
+    positive_integer = gets.chomp.to_f
+    until positive_integer.positive? && positive_integer.to_i == positive_integer
+      puts 'Please type a valid positive integer.'
+      positive_integer = gets.chomp.to_f
+    end
+    positive_integer.to_i
+  end
+end
+
 module Mastermind
   module Colors
     COLORS = { R: 'red',
@@ -30,11 +41,13 @@ module Mastermind
   end
 
   class Game
-    include Colors
+    include Colors, Input
 
     def initialize
       puts "Let's play Mastermind! The peg colors are as follows."
       puts Colors
+      puts 'How many guesses would you like to allow?'
+      @guesses_allowed = positive_integer_input
       @codebreaker = Codebreaker.new
       @codemaker = Codemaker.new
       @history = {}.compare_by_identity
@@ -55,7 +68,7 @@ module Mastermind
     end
 
     def display_history
-      puts "Guesses so far: #{@history.size}/12"
+      puts "Guesses so far: #{@history.size}/#{@guesses_allowed}"
       @history.each_with_index do |(guess, feedback), i|
         puts "#{' ' * 5}Guess \##{i + 1}. #{guess.join}"
         puts feedback.split("\r\n").map { |line| line.prepend(' ' * 10) }.join("\r\n")
@@ -63,7 +76,7 @@ module Mastermind
     end
 
     def evaluate_game_over(guess)
-      out_of_guesses = @history.size == 12
+      out_of_guesses = @history.size == @guesses_allowed
       correct_guess = @codemaker.code == guess
       return unless out_of_guesses || correct_guess
 
