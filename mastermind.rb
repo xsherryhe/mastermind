@@ -25,6 +25,10 @@ module Mastermind
       COLORS.keys.map(&:to_s)
     end
 
+    def sample_letters(length)
+      length.times.map { letters.sample }
+    end
+
     def self.to_s
       join_colors("\r\n")
     end
@@ -41,15 +45,18 @@ module Mastermind
   end
 
   class Game
-    include Colors, Input
+    include Input
+    include Colors
 
     def initialize
       puts "Let's play Mastermind! The peg colors are as follows."
       puts Colors
+      puts 'How many pegs would you like the code to have? (How long should the code be?)'
+      @code_length = positive_integer_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = positive_integer_input
-      @codebreaker = Codebreaker.new
-      @codemaker = Codemaker.new
+      @codebreaker = Codebreaker.new(@code_length)
+      @codemaker = Codemaker.new(@code_length)
       @history = {}.compare_by_identity
     end
 
@@ -93,9 +100,9 @@ module Mastermind
     include Colors
     attr_reader :code
 
-    def initialize
-      @code = 4.times.map { letters.sample }
-      puts 'The computer has chosen a code with four peg colors.'
+    def initialize(code_length)
+      @code = sample_letters(code_length)
+      puts "The computer has chosen a code with #{code_length} peg colors."
     end
 
     def feedback(guess)
@@ -121,13 +128,14 @@ module Mastermind
     include Colors
     attr_reader :name
 
-    def initialize
+    def initialize(code_length)
       puts 'Codebreaker, what is your name?'
       @name = gets.chomp
+      @code_length = code_length
     end
 
     def guess
-      puts "Guess the code, #{name}! Type four letters for four colors (e.g., ROYG)."
+      puts "Guess the code, #{name}! Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_guess})."
       puts Colors.shorthand
       @guess = gets.chomp.upcase.split('')
       validate_guess
@@ -136,13 +144,17 @@ module Mastermind
 
     private
 
+    def sample_guess
+      sample_letters(@code_length).join
+    end
+
     def valid_letters_only
       @guess.all? { |letter| letters.join.include?(letter) }
     end
 
     def validate_guess
-      until @guess.size == 4 && valid_letters_only
-        puts 'Please type FOUR letters (e.g., ROYG).' unless @guess.size == 4
+      until @guess.size == @code_length && valid_letters_only
+        puts "Please type #{@code_length} letters (e.g., #{sample_guess})." unless @guess.size == @code_length
         puts 'Please only type letters corresponding to valid colors.' unless valid_letters_only
         @guess = gets.chomp.upcase.split('')
       end
@@ -153,5 +165,4 @@ end
 game = Mastermind::Game.new
 game.play
 
-# TODO: customizable total guesses allowed and code length
 # TODO: make human and computer subclasses for codemaker and codebreaker once needed
