@@ -55,8 +55,8 @@ module Mastermind
       @code_length = positive_integer_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = positive_integer_input
-      @codebreaker = Codebreaker.new(@code_length)
-      @codemaker = Codemaker.new(@code_length)
+      @codebreaker = HumanCodebreaker.new(@code_length)
+      @codemaker = ComputerCodemaker.new(@code_length)
       @history = {}.compare_by_identity
     end
 
@@ -101,8 +101,7 @@ module Mastermind
     attr_reader :code
 
     def initialize(code_length)
-      @code = sample_letters(code_length)
-      puts "The computer has chosen a code with #{code_length} peg colors."
+      code_length
     end
 
     def feedback(guess)
@@ -124,14 +123,29 @@ module Mastermind
     end
   end
 
+  class ComputerCodemaker < Codemaker
+    def initialize(code_length)
+      @code = sample_letters(super)
+      puts "The computer has chosen a code with #{super} peg colors."
+    end
+  end
+
   class Codebreaker
     include Colors
+    attr_reader :guess
+
+    def initialize(code_length)
+      @code_length = code_length
+    end
+  end
+
+  class HumanCodebreaker < Codebreaker
     attr_reader :name
 
     def initialize(code_length)
+      super
       puts 'Codebreaker, what is your name?'
       @name = gets.chomp
-      @code_length = code_length
     end
 
     def guess
@@ -139,7 +153,7 @@ module Mastermind
       puts Colors.shorthand
       @guess = gets.chomp.upcase.split('')
       validate_guess
-      @guess
+      super
     end
 
     private
@@ -165,4 +179,5 @@ end
 game = Mastermind::Game.new
 game.play
 
-# TODO: make human and computer subclasses for codemaker and codebreaker once needed
+# TODO: make human and computer subclasses for codemaker and codebreaker
+# TODO: implement start a new game? loop
