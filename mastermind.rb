@@ -37,29 +37,42 @@ module Mastermind
       puts Colors
       @codebreaker = Codebreaker.new
       @codemaker = Codemaker.new
-      @history = {}
-      @history.compare_by_identity
+      @history = {}.compare_by_identity
     end
+
+    def play
+      play_round until @game_over
+    end
+
+    private
 
     def play_round
       guess = @codebreaker.guess
       feedback = @codemaker.feedback(guess)
       @history[guess] = feedback
       display_history
+      evaluate_game_over(guess)
     end
 
-    private
-
     def display_history
-      puts guesses_so_far
+      puts "Guesses so far: #{@history.size}/12"
       @history.each_with_index do |(guess, feedback), i|
         puts "#{' ' * 5}Guess \##{i + 1}. #{guess.join}"
         puts feedback.split("\r\n").map { |line| line.prepend(' ' * 10) }.join("\r\n")
       end
     end
 
-    def guesses_so_far
-      "Guesses so far: #{@history.size}/12"
+    def evaluate_game_over(guess)
+      out_of_guesses = @history.size == 12
+      correct_guess = @codemaker.code == guess
+      return unless out_of_guesses || correct_guess
+
+      @game_over = true
+      if correct_guess
+        puts "Congratulations #{@codebreaker.name}, you guessed the code!"
+      else
+        puts "Sorry #{@codebreaker.name}, you ran out of guesses."
+      end
     end
   end
 
@@ -125,8 +138,7 @@ module Mastermind
 end
 
 game = Mastermind::Game.new
-12.times { game.play_round }
+game.play
 
-# TODO: game over conditions
 # TODO: customizable total guesses allowed and code length
 # TODO: make human and computer subclasses for codemaker and codebreaker once needed
