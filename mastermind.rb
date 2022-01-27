@@ -72,9 +72,36 @@ module Mastermind
     end
   end
 
+  module AutoFeedback
+    def feedback(guess, expected = code)
+      @correct_color_position = 0
+      @correct_color = 0
+      letters.each { |letter| give_letter_feedback(letter, guess, expected) }
+      [@correct_color_position, @correct_color]
+    end
+
+    private
+
+    def give_letter_feedback(letter, guess, expected)
+      letter_correct_color_position =
+        guess.each_with_index
+             .count { |guess_letter, i| guess_letter == expected[i] && guess_letter == letter }
+      @correct_color_position += letter_correct_color_position
+      @correct_color += [guess.count(letter), expected.count(letter)].min - letter_correct_color_position
+    end
+  end
+
   module Human
     include InputValidation
     attr_reader :name
+  end
+
+  module Computer
+    include AutoFeedback
+
+    def name
+      'Computer'
+    end
   end
 
   class Game
@@ -88,7 +115,7 @@ module Mastermind
       @code_length = positive_integer_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = positive_integer_input
-      @codebreaker, @codemaker = [HumanCodebreaker, ComputerCodemaker].map { |player| player.new(@code_length) }
+      @codebreaker, @codemaker = [ComputerCodebreaker, HalfHumanCodemaker].map { |player| player.new(@code_length) }
       @history = {}.compare_by_identity
     end
 
@@ -101,6 +128,7 @@ module Mastermind
     def play_round
       guess = @codebreaker.guess
       feedback = @codemaker.feedback(guess)
+      @codebreaker.process_feedback(feedback) if @codebreaker.is_a?(Computer)
       @history[guess] = feedback
       display_history
       evaluate_game_over(guess)
@@ -110,7 +138,10 @@ module Mastermind
       puts "Guesses so far: #{@history.size}/#{@guesses_allowed}"
       @history.each_with_index do |(guess, feedback), i|
         puts "#{' ' * 5}Guess \##{i + 1}. #{guess.join}"
-        puts feedback.split("\r\n").map { |line| line.prepend(' ' * 10) }.join("\r\n")
+        puts ["Pegs with correct color and position: #{feedback.first}",
+              "Pegs with correct color only: #{feedback.last}"]
+          .map { |line| line.prepend(' ' * 10) }
+          .join("\r\n")
       end
     end
 
@@ -138,31 +169,10 @@ module Mastermind
 
   class Codemaker < Player
     attr_reader :code
-
-    def feedback(guess)
-      @correct_color_position = 0
-      @correct_color = 0
-      letters.each { |letter| give_letter_feedback(letter, guess) }
-      "Pegs with correct color and position: #{@correct_color_position}\r\n" \
-      "Pegs with correct color only: #{@correct_color}"
-    end
-
-    private
-
-    def give_letter_feedback(letter, guess)
-      letter_correct_color_position =
-        guess.each_with_index
-             .count { |guess_letter, i| guess_letter == code[i] && guess_letter == letter }
-      @correct_color_position += letter_correct_color_position
-      @correct_color += [guess.count(letter), code.count(letter)].min - letter_correct_color_position
-    end
-  end
-
-  class Codebreaker < Player
-    attr_reader :guess
   end
 
   class ComputerCodemaker < Codemaker
+    include Computer
     def initialize(code_length)
       super
       @code = sample_letters
@@ -177,9 +187,24 @@ module Mastermind
       super
       puts 'Codemaker, what is your name?'
       @name = gets.chomp
+    end
+  end
+
+  class HalfHumanCodemaker < HumanCodemaker
+    include AutoFeedback
+
+    def initialize(code_length)
+      super
       puts "Make your secret code, #{name}! " + valid_code_instruction
       @code = valid_code_input
     end
+  end
+
+  #TODO: Make Human Codemaker where human gives feedback
+  #TODO: Put input validation module back into HumanCodebreaker class?
+
+  class Codebreaker < Player
+    attr_reader :guess
   end
 
   class HumanCodebreaker < Codebreaker
@@ -197,10 +222,44 @@ module Mastermind
       super
     end
   end
+
+  class ComputerCodebreaker < Codebreaker
+    include Computer
+
+    def initialize(code_length)
+      super
+      @possible_guesses = all_possible_guesses
+      @guess = first_guess
+    end
+
+    def guess
+      @guess = @possible_guesses.first unless @possible_guesses.include?(@guess)
+      puts "The computer guesses #{@guess.join}."
+      super
+    end
+
+    def process_feedback(expected_feedback)
+      @possible_guesses.select! { |possible_guess| feedback(@guess, possible_guess) == expected_feedback }
+    end
+
+    private
+
+    def all_possible_guesses
+      letters.repeated_permutation(@code_length).to_a
+    end
+
+    def first_guess
+      letter_guesses = letters.sample(2)
+      half_code_length = @code_length / 2
+      [letter_guesses.first] * half_code_length + [letter_guesses.last] * (@code_length - half_code_length)
+    end
+  end
 end
 
 game = Mastermind::Game.new
 game.play
 
 # TODO: make human and computer subclasses for codemaker and codebreaker
+# TODO: refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules
 # TODO: implement start a new game? loop
+# TODO: implement tighter Knuth strategy
