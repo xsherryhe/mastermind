@@ -1,13 +1,17 @@
 require 'pry-byebug'
 
 module GlobalInputValidation
-  def positive_integer_input
-    positive_integer = gets.chomp.to_f
-    until positive_integer.positive? && positive_integer.to_i == positive_integer
-      puts 'Please type a valid positive integer.'
-      positive_integer = gets.chomp.to_f
+  def integer_input(message = 'Please type a valid integer.', &condition)
+    integer = gets.chomp.to_f
+    until condition.call(integer) && integer.to_i == integer
+      puts message
+      integer = gets.chomp.to_f
     end
-    positive_integer.to_i
+    integer.to_i
+  end
+
+  def positive_integer_input
+    integer_input('Please type a valid positive integer.', &:positive?)
   end
 end
 
@@ -47,6 +51,8 @@ module Mastermind
   module InputValidation
     include GlobalInputValidation
 
+    private
+
     def valid_code_instruction
       "Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_code}).\r\n" + Colors.shorthand
     end
@@ -61,7 +67,11 @@ module Mastermind
       valid_code
     end
 
-    private
+    def valid_feedback_input(max_length)
+      integer_input("Please type a valid integer between 0 and #{max_length}.") do |integer|
+        integer >= 0 && integer <= max_length
+      end
+    end
 
     def sample_code
       sample_letters.join
@@ -73,7 +83,7 @@ module Mastermind
   end
 
   module AutoFeedback
-    def feedback(guess, expected = code)
+    def feedback(guess, expected = @code)
       @correct_color_position = 0
       @correct_color = 0
       letters.each { |letter| give_letter_feedback(letter, guess, expected) }
@@ -115,7 +125,7 @@ module Mastermind
       @code_length = positive_integer_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = positive_integer_input
-      @codebreaker, @codemaker = [ComputerCodebreaker, HalfHumanCodemaker].map { |player| player.new(@code_length) }
+      @codebreaker, @codemaker = [ComputerCodebreaker, HumanCodemaker].map { |player| player.new(@code_length) }
       @history = {}.compare_by_identity
     end
 
@@ -131,7 +141,7 @@ module Mastermind
       @codebreaker.process_feedback(feedback) if @codebreaker.is_a?(Computer)
       @history[guess] = feedback
       display_history
-      evaluate_game_over(guess)
+      evaluate_game_over
     end
 
     def display_history
@@ -145,17 +155,17 @@ module Mastermind
       end
     end
 
-    def evaluate_game_over(guess)
+    def evaluate_game_over
+      correct_guess = @history.values.last.first == @code_length
       out_of_guesses = @history.size == @guesses_allowed
-      correct_guess = @codemaker.code == guess
-      return unless out_of_guesses || correct_guess
+      impossible_code = @codebreaker.is_a?(Computer) && @codebreaker.possible_guesses.empty?
+      game_over_index = [correct_guess, out_of_guesses, impossible_code].index(true)
+      return unless game_over_index
 
       @game_over = true
-      if correct_guess
-        puts "Congratulations #{@codebreaker.name}, you guessed the code!"
-      else
-        puts "Sorry #{@codebreaker.name}, you ran out of guesses."
-      end
+      puts ["Congratulations #{@codebreaker.name}, you guessed the code!",
+            "Sorry #{@codebreaker.name}, you ran out of guesses.",
+            'Based on your feedback, there is no code that works here.'][game_over_index]
     end
   end
 
@@ -168,7 +178,6 @@ module Mastermind
   end
 
   class Codemaker < Player
-    attr_reader :code
   end
 
   class ComputerCodemaker < Codemaker
@@ -187,6 +196,18 @@ module Mastermind
       super
       puts 'Codemaker, what is your name?'
       @name = gets.chomp
+      puts "#{name}, please decide on a code with #{@code_length} peg colors. Keep it a secret!"
+      puts 'Press ENTER to continue.'
+      gets
+    end
+
+    def feedback(_guess)
+      puts "How many pegs in the computer's guess have the correct color AND position?"
+      correct_color_position = valid_feedback_input(@code_length)
+      puts "How many pegs in the computer's guess have ONLY the correct color" \
+           ' (EXCLUDING the ones in the correct position)?'
+      correct_color = valid_feedback_input(@code_length - correct_color_position)
+      [correct_color_position, correct_color]
     end
   end
 
@@ -200,11 +221,7 @@ module Mastermind
     end
   end
 
-  #TODO: Make Human Codemaker where human gives feedback
-  #TODO: Put input validation module back into HumanCodebreaker class?
-
   class Codebreaker < Player
-    attr_reader :guess
   end
 
   class HumanCodebreaker < Codebreaker
@@ -218,13 +235,13 @@ module Mastermind
 
     def guess
       puts "Guess the code, #{name}! " + valid_code_instruction
-      @guess = valid_code_input
-      super
+      valid_code_input
     end
   end
 
   class ComputerCodebreaker < Codebreaker
     include Computer
+    attr_reader :possible_guesses
 
     def initialize(code_length)
       super
@@ -233,9 +250,9 @@ module Mastermind
     end
 
     def guess
-      @guess = @possible_guesses.first unless @possible_guesses.include?(@guess)
+      @guess = possible_guesses.first unless possible_guesses.include?(@guess)
       puts "The computer guesses #{@guess.join}."
-      super
+      @guess
     end
 
     def process_feedback(expected_feedback)
@@ -259,7 +276,8 @@ end
 game = Mastermind::Game.new
 game.play
 
-# TODO: make human and computer subclasses for codemaker and codebreaker
-# TODO: refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules
+# TODO: refactor global input validation to valid code length and guess length inputs with upper limits (to prevent program from crashing)
+# TODO: Give choice for who is who in initial game
+# TODO: refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules? or they are all modules
 # TODO: implement start a new game? loop
 # TODO: implement tighter Knuth strategy
