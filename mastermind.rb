@@ -11,7 +11,7 @@ module GlobalInputValidation
   end
 
   def integer_in_range(start, finish)
-    integer_input("Please type a valid integer between #{start} and #{finish}.") do |integer| 
+    integer_input("Please type a valid integer between #{start} and #{finish}.") do |integer|
       integer.between?(start, finish)
     end
   end
@@ -61,6 +61,15 @@ module Mastermind
 
     def valid_guesses_allowed_input
       integer_in_range(1, 1_000_000)
+    end
+
+    def valid_game_mode_input
+      valid_game_mode = gets.chomp
+      until valid_game_mode =~ /^[ABCDEF]$/i
+        puts 'Please type one letter (A, B, C, D, E, or F) to select the corresponding game mode.'
+        valid_game_mode = gets.chomp
+      end
+      valid_game_mode.upcase
     end
 
     def valid_code_instruction
@@ -133,7 +142,7 @@ module Mastermind
       @code_length = valid_code_length_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = valid_guesses_allowed_input
-      @codebreaker, @codemaker = [ComputerCodebreaker, HumanCodemaker].map { |player| player.new(@code_length) }
+      @codebreaker, @codemaker = player_classes.map { |player| player.new(@code_length) }
       @history = {}.compare_by_identity
     end
 
@@ -142,6 +151,35 @@ module Mastermind
     end
 
     private
+
+    def game_mode_descriptions
+      ['A: Computer vs Computer.', '   Watch two computers play.',
+       'B: Human vs Computer.', '   Play as the Codebreaker against a Computer Codemaker.',
+       'C: Computer vs Human.', '   Play as the Codemaker against a Computer Codebreaker.',
+       '   Give your own feedback to the Computer.',
+       'D: Computer vs AutoHuman.', '   Play as the Codemaker against a Computer Codebreaker.',
+       '   Input your code into the game.', '   The game automatically generates feedback to the Computer.',
+       'E: Human vs Human.', '   Two-player mode.',
+       'F: Human vs AutoHuman.', '   Two-player mode with automatically generated feedback.']
+        .map { |line| line.prepend(' ' * 5) }
+        .join("\r\n")
+    end
+
+    def game_modes
+      { A: [ComputerCodebreaker, ComputerCodemaker],
+        B: [HumanCodebreaker, ComputerCodemaker],
+        C: [ComputerCodebreaker, HumanCodemaker],
+        D: [ComputerCodebreaker, AutoHumanCodemaker],
+        E: [HumanCodebreaker, HumanCodemaker],
+        F: [HumanCodebreaker, AutoHumanCodemaker] }
+    end
+
+    def player_classes
+      puts 'Select your game mode. (Type A, B, C, D, E, or F)'
+      puts game_mode_descriptions
+      game_mode = valid_game_mode_input
+      game_modes[game_mode.to_sym]
+    end
 
     def play_round
       guess = @codebreaker.guess
@@ -210,20 +248,23 @@ module Mastermind
     end
 
     def feedback(_guess)
-      puts "How many pegs in the computer's guess have the correct color AND position?"
+      puts "#{name}, how many pegs in the guess have the correct color AND position?"
       correct_color_position = valid_feedback_input(@code_length)
-      puts "How many pegs in the computer's guess have ONLY the correct color" \
+      puts "#{name}, how many pegs in the guess have ONLY the correct color" \
            ' (EXCLUDING the ones in the correct position)?'
       correct_color = valid_feedback_input(@code_length - correct_color_position)
       [correct_color_position, correct_color]
     end
   end
 
-  class HalfHumanCodemaker < HumanCodemaker
+  class AutoHumanCodemaker < Codemaker
+    include Human
     include AutoFeedback
 
     def initialize(code_length)
       super
+      puts 'Codemaker, what is your name?'
+      @name = gets.chomp
       puts "Make your secret code, #{name}! " + valid_code_instruction
       @code = valid_code_input
     end
@@ -284,7 +325,7 @@ end
 game = Mastermind::Game.new
 game.play
 
-# TODO: Give choice for who is who in initial game
-# TODO: refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules? or they are all modules
+# TODO: Refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules?
+#       Or they are all modules? Modularize name = gets.chomp for human classes
 # TODO: implement start a new game? loop
 # TODO: implement tighter Knuth strategy
