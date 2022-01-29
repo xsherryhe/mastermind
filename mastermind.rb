@@ -10,8 +10,10 @@ module GlobalInputValidation
     integer.to_i
   end
 
-  def positive_integer_input
-    integer_input('Please type a valid positive integer.', &:positive?)
+  def integer_in_range(start, finish)
+    integer_input("Please type a valid integer between #{start} and #{finish}.") do |integer| 
+      integer.between?(start, finish)
+    end
   end
 end
 
@@ -53,6 +55,14 @@ module Mastermind
 
     private
 
+    def valid_code_length_input
+      integer_in_range(1, 6)
+    end
+
+    def valid_guesses_allowed_input
+      integer_in_range(1, 1_000_000)
+    end
+
     def valid_code_instruction
       "Type #{@code_length} letters for #{@code_length} colors (e.g., #{sample_code}).\r\n" + Colors.shorthand
     end
@@ -68,9 +78,7 @@ module Mastermind
     end
 
     def valid_feedback_input(max_length)
-      integer_input("Please type a valid integer between 0 and #{max_length}.") do |integer|
-        integer >= 0 && integer <= max_length
-      end
+      integer_in_range(0, max_length)
     end
 
     def sample_code
@@ -122,9 +130,9 @@ module Mastermind
       puts "Let's play Mastermind! The peg colors are as follows."
       puts Colors
       puts 'How many pegs would you like the code to have? (How long should the code be?)'
-      @code_length = positive_integer_input
+      @code_length = valid_code_length_input
       puts 'How many guesses would you like to allow?'
-      @guesses_allowed = positive_integer_input
+      @guesses_allowed = valid_guesses_allowed_input
       @codebreaker, @codemaker = [ComputerCodebreaker, HumanCodemaker].map { |player| player.new(@code_length) }
       @history = {}.compare_by_identity
     end
@@ -276,7 +284,6 @@ end
 game = Mastermind::Game.new
 game.play
 
-# TODO: refactor global input validation to valid code length and guess length inputs with upper limits (to prevent program from crashing)
 # TODO: Give choice for who is who in initial game
 # TODO: refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules? or they are all modules
 # TODO: implement start a new game? loop
