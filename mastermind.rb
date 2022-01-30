@@ -94,13 +94,15 @@ module Mastermind
       sample_letters.join
     end
 
-    def valid_letters_only(code)
-      code.all? { |letter| letters.join.include?(letter) }
+    def valid_letters_only(input)
+      input.all? { |letter| letters.join.include?(letter) }
     end
   end
 
   module AutoFeedback
-    def feedback(guess, expected = @code)
+    attr_reader :code
+
+    def feedback(guess, expected = code)
       @correct_color_position = 0
       @correct_color = 0
       letters.each { |letter| give_letter_feedback(letter, guess, expected) }
@@ -129,6 +131,11 @@ module Mastermind
   class Human < Player
     include InputValidation
     attr_reader :name
+
+    def initialize(code_length)
+      super
+      @name = gets.chomp
+    end
   end
 
   class Computer < Player
@@ -149,9 +156,8 @@ module Mastermind
 
   class HumanCodemaker < Human
     def initialize(code_length)
-      super
       puts 'Codemaker, what is your name?'
-      @name = gets.chomp
+      super
       puts "#{name}, please decide on a code with #{@code_length} peg colors. Keep it a secret!"
       puts 'Press ENTER to continue.'
       gets
@@ -171,9 +177,8 @@ module Mastermind
     include AutoFeedback
 
     def initialize(code_length)
-      super
       puts 'Codemaker, what is your name?'
-      @name = gets.chomp
+      super
       puts "Make your secret code, #{name}! " + valid_code_instruction
       @code = valid_code_input
     end
@@ -181,9 +186,8 @@ module Mastermind
 
   class HumanCodebreaker < Human
     def initialize(code_length)
-      super
       puts 'Codebreaker, what is your name?'
-      @name = gets.chomp
+      super
     end
 
     def guess
@@ -295,16 +299,20 @@ module Mastermind
     end
 
     def evaluate_game_over
-      correct_guess = @history.values.last.first == @code_length
-      out_of_guesses = @history.size == @guesses_allowed
-      impossible_code = @codebreaker.is_a?(Computer) && @codebreaker.possible_guesses.empty?
-      game_over_index = [correct_guess, out_of_guesses, impossible_code].index(true)
       return unless game_over_index
 
       @game_over = true
       puts ["Congratulations #{@codebreaker.name}, you guessed the code!",
             "Sorry #{@codebreaker.name}, you ran out of guesses.",
             'Based on your feedback, there is no code that works here.'][game_over_index]
+      puts "The code was #{@codemaker.code.join}." if @codemaker.is_a?(AutoFeedback)
+    end
+
+    def game_over_index
+      correct_guess = @history.values.last.first == @code_length
+      out_of_guesses = @history.size == @guesses_allowed
+      impossible_code = @codebreaker.is_a?(Computer) && @codebreaker.possible_guesses.empty?
+      [correct_guess, out_of_guesses, impossible_code].index(true)
     end
   end
 end
@@ -312,6 +320,5 @@ end
 game = Mastermind::Game.new
 game.play
 
-# TODO: Modularize name = gets.chomp for human classes
 # TODO: implement start a new game? loop
 # TODO: implement tighter Knuth strategy
