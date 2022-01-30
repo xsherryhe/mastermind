@@ -118,16 +118,109 @@ module Mastermind
     end
   end
 
-  module Human
+  class Player
+    include Colors
+
+    def initialize(code_length)
+      @code_length = code_length
+    end
+  end
+
+  class Human < Player
     include InputValidation
     attr_reader :name
   end
 
-  module Computer
+  class Computer < Player
     include AutoFeedback
 
     def name
       'Computer'
+    end
+  end
+
+  class ComputerCodemaker < Computer
+    def initialize(code_length)
+      super
+      @code = sample_letters
+      puts "The computer has chosen a code with #{@code_length} peg colors."
+    end
+  end
+
+  class HumanCodemaker < Human
+    def initialize(code_length)
+      super
+      puts 'Codemaker, what is your name?'
+      @name = gets.chomp
+      puts "#{name}, please decide on a code with #{@code_length} peg colors. Keep it a secret!"
+      puts 'Press ENTER to continue.'
+      gets
+    end
+
+    def feedback(_guess)
+      puts "#{name}, how many pegs in the guess have the correct color AND position?"
+      correct_color_position = valid_feedback_input(@code_length)
+      puts "#{name}, how many pegs in the guess have ONLY the correct color" \
+           ' (EXCLUDING the ones in the correct position)?'
+      correct_color = valid_feedback_input(@code_length - correct_color_position)
+      [correct_color_position, correct_color]
+    end
+  end
+
+  class AutoHumanCodemaker < Human
+    include AutoFeedback
+
+    def initialize(code_length)
+      super
+      puts 'Codemaker, what is your name?'
+      @name = gets.chomp
+      puts "Make your secret code, #{name}! " + valid_code_instruction
+      @code = valid_code_input
+    end
+  end
+
+  class HumanCodebreaker < Human
+    def initialize(code_length)
+      super
+      puts 'Codebreaker, what is your name?'
+      @name = gets.chomp
+    end
+
+    def guess
+      puts "Guess the code, #{name}! " + valid_code_instruction
+      valid_code_input
+    end
+  end
+
+  class ComputerCodebreaker < Computer
+    attr_reader :possible_guesses
+
+    def initialize(code_length)
+      super
+      @possible_guesses = all_possible_guesses
+      @guess = first_guess
+    end
+
+    def guess
+      @guess = possible_guesses.first unless possible_guesses.include?(@guess)
+      puts "The computer guesses #{@guess.join}."
+      @guess
+    end
+
+    def process_feedback(expected_feedback)
+      @possible_guesses.select! { |possible_guess| feedback(@guess, possible_guess) == expected_feedback }
+    end
+
+    private
+
+    def all_possible_guesses
+      letters.repeated_permutation(@code_length).to_a
+    end
+
+    def first_guess
+      letter_guesses = letters.sample(2)
+      half_code_length = @code_length / 2
+      [letter_guesses.first] * half_code_length + [letter_guesses.last] * (@code_length - half_code_length)
     end
   end
 
@@ -214,118 +307,11 @@ module Mastermind
             'Based on your feedback, there is no code that works here.'][game_over_index]
     end
   end
-
-  class Player
-    include Colors
-
-    def initialize(code_length)
-      @code_length = code_length
-    end
-  end
-
-  class Codemaker < Player
-  end
-
-  class ComputerCodemaker < Codemaker
-    include Computer
-    def initialize(code_length)
-      super
-      @code = sample_letters
-      puts "The computer has chosen a code with #{@code_length} peg colors."
-    end
-  end
-
-  class HumanCodemaker < Codemaker
-    include Human
-
-    def initialize(code_length)
-      super
-      puts 'Codemaker, what is your name?'
-      @name = gets.chomp
-      puts "#{name}, please decide on a code with #{@code_length} peg colors. Keep it a secret!"
-      puts 'Press ENTER to continue.'
-      gets
-    end
-
-    def feedback(_guess)
-      puts "#{name}, how many pegs in the guess have the correct color AND position?"
-      correct_color_position = valid_feedback_input(@code_length)
-      puts "#{name}, how many pegs in the guess have ONLY the correct color" \
-           ' (EXCLUDING the ones in the correct position)?'
-      correct_color = valid_feedback_input(@code_length - correct_color_position)
-      [correct_color_position, correct_color]
-    end
-  end
-
-  class AutoHumanCodemaker < Codemaker
-    include Human
-    include AutoFeedback
-
-    def initialize(code_length)
-      super
-      puts 'Codemaker, what is your name?'
-      @name = gets.chomp
-      puts "Make your secret code, #{name}! " + valid_code_instruction
-      @code = valid_code_input
-    end
-  end
-
-  class Codebreaker < Player
-  end
-
-  class HumanCodebreaker < Codebreaker
-    include Human
-
-    def initialize(code_length)
-      super
-      puts 'Codebreaker, what is your name?'
-      @name = gets.chomp
-    end
-
-    def guess
-      puts "Guess the code, #{name}! " + valid_code_instruction
-      valid_code_input
-    end
-  end
-
-  class ComputerCodebreaker < Codebreaker
-    include Computer
-    attr_reader :possible_guesses
-
-    def initialize(code_length)
-      super
-      @possible_guesses = all_possible_guesses
-      @guess = first_guess
-    end
-
-    def guess
-      @guess = possible_guesses.first unless possible_guesses.include?(@guess)
-      puts "The computer guesses #{@guess.join}."
-      @guess
-    end
-
-    def process_feedback(expected_feedback)
-      @possible_guesses.select! { |possible_guess| feedback(@guess, possible_guess) == expected_feedback }
-    end
-
-    private
-
-    def all_possible_guesses
-      letters.repeated_permutation(@code_length).to_a
-    end
-
-    def first_guess
-      letter_guesses = letters.sample(2)
-      half_code_length = @code_length / 2
-      [letter_guesses.first] * half_code_length + [letter_guesses.last] * (@code_length - half_code_length)
-    end
-  end
 end
 
 game = Mastermind::Game.new
 game.play
 
-# TODO: Refactor to make subclasses inherit from human and computer? and codemaker/codebraker are modules?
-#       Or they are all modules? Modularize name = gets.chomp for human classes
+# TODO: Modularize name = gets.chomp for human classes
 # TODO: implement start a new game? loop
 # TODO: implement tighter Knuth strategy
