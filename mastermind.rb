@@ -18,6 +18,26 @@ module GlobalInputValidation
 end
 
 module Mastermind
+  def self.run
+    loop do
+      puts 'Start a new game? Y/N'
+      unless gets.chomp =~ /yes|y/i
+        puts 'Okay, bye!'
+        break
+      end
+      initialize_game
+    end
+  end
+
+  def self.initialize_game
+    puts "Let's play Mastermind! The peg colors are as follows."
+    puts self::Colors
+    game_settings = self::GameSettings.new
+    self::Game.new(game_settings).play
+  end
+
+  private_class_method :initialize_game
+
   module Colors
     COLORS = { R: 'red',
                O: 'orange',
@@ -52,6 +72,7 @@ module Mastermind
 
   module InputValidation
     include GlobalInputValidation
+    include Colors
 
     private
 
@@ -228,23 +249,17 @@ module Mastermind
     end
   end
 
-  class Game
+  class GameSettings
     include InputValidation
-    include Colors
+
+    attr_reader :code_length, :guesses_allowed, :player_classes
 
     def initialize
-      puts "Let's play Mastermind! The peg colors are as follows."
-      puts Colors
       puts 'How many pegs would you like the code to have? (How long should the code be?)'
       @code_length = valid_code_length_input
       puts 'How many guesses would you like to allow?'
       @guesses_allowed = valid_guesses_allowed_input
-      @codebreaker, @codemaker = player_classes.map { |player| player.new(@code_length) }
-      @history = {}.compare_by_identity
-    end
-
-    def play
-      play_round until @game_over
+      @player_classes = select_player_classes
     end
 
     private
@@ -271,12 +286,27 @@ module Mastermind
         F: [HumanCodebreaker, AutoHumanCodemaker] }
     end
 
-    def player_classes
+    def select_player_classes
       puts 'Select your game mode. (Type A, B, C, D, E, or F)'
       puts game_mode_descriptions
       game_mode = valid_game_mode_input
       game_modes[game_mode.to_sym]
     end
+  end
+
+  class Game
+    def initialize(game_settings)
+      @code_length = game_settings.code_length
+      @guesses_allowed = game_settings.guesses_allowed
+      @codebreaker, @codemaker = game_settings.player_classes.map { |player| player.new(@code_length) }
+      @history = {}.compare_by_identity
+    end
+
+    def play
+      play_round until @game_over
+    end
+
+    private
 
     def play_round
       guess = @codebreaker.guess
@@ -317,8 +347,7 @@ module Mastermind
   end
 end
 
-game = Mastermind::Game.new
-game.play
+Mastermind.run
 
 # TODO: implement start a new game? loop
 # TODO: implement tighter Knuth strategy
