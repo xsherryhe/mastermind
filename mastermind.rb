@@ -30,10 +30,16 @@ module Mastermind
   end
 
   def self.initialize_game
-    puts "Let's play Mastermind! The peg colors are as follows."
-    puts self::Colors
-    game_settings = self::GameSettings.new
-    self::Game.new(game_settings).play
+    if @game_settings
+      puts 'Keep the same game mode and settings? Y/N'
+      same_settings = gets.chomp =~ /yes|y/i
+    else
+      puts "Let's play Mastermind! The peg colors are as follows."
+      puts self::Colors
+    end
+
+    @game_settings = self::GameSettings.new unless same_settings
+    self::Game.new(@game_settings).play
   end
 
   private_class_method :initialize_game
@@ -349,5 +355,4 @@ end
 
 Mastermind.run
 
-# TODO: implement start a new game? loop
 # TODO: implement tighter Knuth strategy
