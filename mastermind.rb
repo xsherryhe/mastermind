@@ -1,5 +1,3 @@
-require 'pry-byebug'
-
 module GlobalInputValidation
   def integer_input(message = 'Please type a valid integer.', &condition)
     integer = gets.chomp.to_f
@@ -355,5 +353,3 @@ module Mastermind
 end
 
 Mastermind.run
-
-# TODO: implement tighter Knuth strategy
