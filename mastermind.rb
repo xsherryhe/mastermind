@@ -145,6 +145,12 @@ module Mastermind
       @correct_color_position += letter_correct_color_position
       @correct_color += [guess.count(letter), expected.count(letter)].min - letter_correct_color_position
     end
+
+    def all_possible_feedback
+      (0..@code_length).reduce([]) do |all, correct_color_position|
+        all + [correct_color_position].product((0..@code_length - correct_color_position).to_a)
+      end
+    end
   end
 
   class Player
@@ -229,17 +235,18 @@ module Mastermind
     def initialize(code_length)
       super
       @possible_guesses = all_possible_guesses
-      @guess = first_guess
+      @possible_answers = all_possible_guesses
+      @possible_feedback = all_possible_feedback
     end
 
     def guess
-      @guess = possible_guesses.first unless possible_guesses.include?(@guess)
+      @guess = (@guess ? next_guess : first_guess)
       puts "The computer guesses #{@guess.join}."
       @guess
     end
 
     def process_feedback(expected_feedback)
-      @possible_guesses.select! { |possible_guess| feedback(@guess, possible_guess) == expected_feedback }
+      @possible_answers.select! { |possible_answer| feedback(@guess, possible_answer) == expected_feedback }
     end
 
     private
@@ -252,6 +259,19 @@ module Mastermind
       letter_guesses = letters.sample(2)
       half_code_length = @code_length / 2
       [letter_guesses.first] * half_code_length + [letter_guesses.last] * (@code_length - half_code_length)
+    end
+
+    def next_guess
+      return @possible_answers.first if @possible_answers.size == 1
+
+      @possible_guesses.delete(@guess)
+      @possible_guesses.max_by { |poss_guess| guess_score(poss_guess) }
+    end
+
+    def guess_score(poss_guess)
+      @possible_feedback.map do |poss_feedback|
+        @possible_answers.count { |poss_answer| feedback(poss_guess, poss_answer) != poss_feedback }
+      end.min
     end
   end
 
@@ -354,5 +374,3 @@ module Mastermind
 end
 
 Mastermind.run
-
-# TODO: implement tighter Knuth strategy
