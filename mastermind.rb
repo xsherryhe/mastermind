@@ -186,6 +186,7 @@ module Mastermind
       puts 'Codemaker, what is your name?'
       super
       puts "#{name}, please decide on a code with #{@code_length} peg colors. Keep it a secret!"
+      puts Colors.shorthand
       puts 'Press ENTER to continue.'
       gets
     end
