@@ -8,6 +8,6 @@ The project primarily demonstrates principles of object-oriented programming, in
 
 ## Preview
 
-![Mastermind preview](/mastermind.png)
+[![Mastermind preview](/mastermind.png)](https://replit.com/@xsherryhe/mastermind)
 
 Run this project [here](https://replit.com/@xsherryhe/mastermind).
